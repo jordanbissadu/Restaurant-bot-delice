@@ -30,6 +30,10 @@ uv pip install -e ".[dev]"
 cp .env.example .env   # puis renseigner les valeurs
 ```
 
+> Si un autre projet a un venv actif dans le shell (variable `VIRTUAL_ENV`
+> renseignee), `uv pip install` cible ce venv-la. Desactivez-le d'abord, ou
+> prefixez par `env -u VIRTUAL_ENV`.
+
 ## Index MongoDB
 
 ```bash
