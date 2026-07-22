@@ -16,3 +16,11 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
+
+  bot:
+    build: .
+    command: python -m src.telegram_bot
+    env_file: .env
+    volumes:
+      - ./credentials:/app/credentials:ro
+    restart: unless-stopped

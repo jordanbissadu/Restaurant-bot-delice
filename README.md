@@ -1,8 +1,10 @@
 # Restaurant Le Delice - Bot Telegram RAG
 
 Pipeline de donnees : un dossier Google Drive partage est synchronise vers
-MongoDB Atlas (Docling -> chunks -> embeddings OpenAI). Le bot conversationnel
-fait l'objet du plan 2.
+MongoDB Atlas (Docling -> chunks -> embeddings OpenAI).
+
+Bot conversationnel : un agent Pydantic AI (`gpt-4.1-mini`) repond aux clients
+sur Telegram, cherche dans le menu, prend les commandes et notifie la cuisine.
 
 ## Prerequis
 
@@ -68,8 +70,38 @@ uv run python -m pytest tests/ -v -m integration   # necessite Mongo / OpenAI / 
 > que le pytest utilise est bien celui de l'environnement du projet, meme si un
 > autre venv est actif dans le shell.
 
+## Bot Telegram
+
+Creer le bot aupres de [@BotFather](https://t.me/BotFather), recuperer le token
+et le placer dans `TELEGRAM_BOT_TOKEN`.
+
+Pour `TELEGRAM_KITCHEN_CHAT_ID` : ajouter le bot au groupe cuisine, envoyer un
+message dans ce groupe, puis lire l'identifiant via
+
+```bash
+curl "https://api.telegram.org/bot<TOKEN>/getUpdates"
+```
+
+L'identifiant d'un groupe est negatif.
+
+### Lancer le bot
+
+```bash
+uv run python -m src.telegram_bot
+```
+
+Le bot fonctionne en long-polling : aucune URL publique n'est necessaire.
+
+### Commandes client
+
+- `/start` ou `/reset` — reinitialise la conversation
+- tout autre message — traite par l'agent
+
 ## Docker
 
 ```bash
 docker compose up -d
 ```
+
+Trois services : `worker` (sync Drive periodique), `api` (operations),
+`bot` (Telegram).
