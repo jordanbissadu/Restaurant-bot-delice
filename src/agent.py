@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent, ModelRetry, RunContext
 from pydantic_ai.messages import ModelMessage
 from pydantic_ai.models.openai import OpenAIChatModel
+from pydantic_ai.providers.openai import OpenAIProvider
 
 from src.prompts import SYSTEM_PROMPT
 from src.settings import load_settings
@@ -55,7 +56,13 @@ def build_agent() -> Agent[BotDeps, str]:
         L'agent configure avec le system prompt du restaurant.
     """
     settings = load_settings()
-    model = OpenAIChatModel(settings.llm_model)
+    # La cle est passee explicitement au provider : pydantic-ai lit sinon la
+    # variable d'environnement OPENAI_API_KEY, absente ici puisque la config
+    # vient du fichier .env (charge par pydantic-settings, non exporte).
+    model = OpenAIChatModel(
+        settings.llm_model,
+        provider=OpenAIProvider(api_key=settings.openai_api_key),
+    )
     agent: Agent[BotDeps, str] = Agent(
         model, deps_type=BotDeps, system_prompt=SYSTEM_PROMPT
     )

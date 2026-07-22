@@ -72,6 +72,27 @@ async def test_agent_exposes_the_three_n8n_tools(deps: BotDeps) -> None:
 
 
 @pytest.mark.unit
+def test_build_agent_without_env_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    """build_agent() lit la cle depuis la config, pas la variable d'environnement.
+
+    En production, OPENAI_API_KEY vient du fichier .env (pydantic-settings) et
+    n'est pas exportee dans l'environnement du processus. Le provider OpenAI de
+    pydantic-ai la cherchant dans os.environ, la cle doit lui etre passee
+    explicitement.
+    """
+    from src.settings import Settings
+
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    # La cle vient de la config (ici en argument), jamais de l'environnement.
+    settings = Settings(_env_file=None, openai_api_key="sk-from-config")
+
+    monkeypatch.setattr("src.agent.load_settings", lambda: settings)
+
+    # Ne doit pas lever UserError("Set the OPENAI_API_KEY environment variable").
+    build_agent()
+
+
+@pytest.mark.unit
 async def test_answer_returns_text_and_new_messages(deps: BotDeps) -> None:
     """answer() renvoie la reponse et les messages a persister."""
     agent = build_agent()
