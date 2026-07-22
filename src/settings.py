@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     mongodb_collection_orders: str = Field(default="orders")
     mongodb_collection_conversations: str = Field(default="conversations")
     mongodb_collection_messages: str = Field(default="messages")
+    mongodb_collection_counters: str = Field(default="counters")
     mongodb_vector_index: str = Field(default="vector_index")
     mongodb_text_index: str = Field(default="text_index")
 
