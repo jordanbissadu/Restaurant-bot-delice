@@ -45,6 +45,7 @@ class Settings(BaseSettings):
 
     # Reranking
     cohere_api_key: str = Field(default="")
+    rerank_model: str = Field(default="rerank-v3.5")
     rerank_top_n: int = Field(default=10, gt=0)
 
     # Divers
