@@ -22,6 +22,10 @@ async def main() -> None:
         await deps.chunks.create_index([("document_id", 1), ("version", 1)])
         await deps.orders.create_index([("chat_id", 1), ("created_at", -1)])
         await deps.orders.create_index("order_number", unique=True)
+        messages = deps.db[deps.settings.mongodb_collection_messages]
+        conversations = deps.db[deps.settings.mongodb_collection_conversations]
+        await messages.create_index([("chat_id", 1), ("seq", -1)])
+        await conversations.create_index("chat_id", unique=True)
         logger.info("classic_indexes_created")
 
     vector_index = {
