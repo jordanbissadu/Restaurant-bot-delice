@@ -6,3 +6,5 @@ credentials/*.json
 .pytest_cache/
 .ruff_cache/
 *.egg-info/
+photos/*
+!photos/photos.csv
