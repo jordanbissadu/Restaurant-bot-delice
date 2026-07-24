@@ -128,3 +128,9 @@ def test_same_dish_cited_twice_is_returned_once() -> None:
     text = "Le Poulet Yassa est excellent. Je confirme le Poulet Yassa."
 
     assert find_dishes(text, CATALOGUE) == ["Poulet Yassa"]
+
+
+@pytest.mark.unit
+def test_normalize_unifies_curly_and_straight_apostrophes() -> None:
+    """Une apostrophe typographique se normalise comme une apostrophe droite."""
+    assert normalize("l’agneau") == normalize("l'agneau") == "l'agneau"

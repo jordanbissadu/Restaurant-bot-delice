@@ -41,7 +41,7 @@ def normalize(text: str) -> str:
     decomposed = unicodedata.normalize("NFKD", text)
     stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
     stripped = stripped.replace("œ", "oe").replace("Œ", "oe")
-    stripped = stripped.replace("'", "'").replace("'", "'")
+    stripped = stripped.replace("’", "'").replace("‘", "'")
     return re.sub(r"\s+", " ", stripped.lower()).strip()
 
 
