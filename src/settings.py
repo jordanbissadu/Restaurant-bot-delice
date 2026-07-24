@@ -49,6 +49,22 @@ class Settings(BaseSettings):
     rerank_model: str = Field(default="rerank-v3.5")
     rerank_top_n: int = Field(default=10, gt=0)
 
+    # Photos des plats
+    photos_enabled: bool = Field(default=True)
+    photos_max_dishes: int = Field(
+        default=4, gt=0, description="Au-dela, la reponse cite trop de plats"
+    )
+    photos_max_images: int = Field(
+        default=10, gt=0, le=10, description="Limite Telegram par album"
+    )
+    photos_caption_suffix: str = Field(
+        default="", description="Ex. 'Photo d'illustration'"
+    )
+    mongodb_collection_dish_photos: str = Field(default="dish_photos")
+    drive_photos_catalogue_name: str = Field(
+        default="photos", description="Nom du fichier catalogue dans Drive, sans extension"
+    )
+
     # Divers
     memory_max_messages: int = Field(default=50, gt=0)
     chunk_max_tokens: int = Field(default=512, gt=0)

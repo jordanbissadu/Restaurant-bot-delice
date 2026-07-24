@@ -122,3 +122,24 @@ class Order(BaseModel):
         if not self.delivery_address:
             raise ValueError("delivery_address est obligatoire en mode livraison")
         return self
+
+
+class DishPhoto(BaseModel):
+    """Photo d'un plat, synchronisee depuis Drive et mise en cache Telegram."""
+
+    dish_name: str = Field(..., min_length=1, description="Nom exact tel qu'au menu")
+    dish_key: str = Field(..., min_length=1, description="Nom normalise, indexe")
+    drive_file_id: str = Field(..., min_length=1)
+    file_name: str = Field(..., min_length=1)
+    drive_modified_time: datetime = Field(
+        ..., description="Horodatage Drive; son changement invalide le cache"
+    )
+    content_hash: str = Field(
+        default="", description="sha256, renseigne au premier telechargement"
+    )
+    telegram_file_id: str = Field(
+        default="", description="Cache Telegram; vide tant que jamais envoyee"
+    )
+    position: int = Field(default=1, ge=1, description="Ordre d'affichage du plat")
+    enabled: bool = Field(default=True)
+    updated_at: datetime

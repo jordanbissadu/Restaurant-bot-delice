@@ -38,4 +38,10 @@ def test_settings_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     assert settings.drive_sync_interval_minutes == 15
     assert settings.drive_sync_max_delete_ratio == 0.5
     assert settings.rerank_top_n == 10
+    assert settings.photos_enabled is True
+    assert settings.photos_max_dishes == 4
+    assert settings.photos_max_images == 10
+    assert settings.photos_caption_suffix == ""
+    assert settings.mongodb_collection_dish_photos == "dish_photos"
+    assert settings.drive_photos_catalogue_name == "photos"
     assert settings.memory_max_messages == 50

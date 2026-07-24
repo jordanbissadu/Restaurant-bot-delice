@@ -87,3 +87,8 @@ class AppDependencies:
     def orders(self):
         """Collection des commandes clients."""
         return self.db[self.settings.mongodb_collection_orders]
+
+    @property
+    def dish_photos(self):
+        """Collection des photos de plats."""
+        return self.db[self.settings.mongodb_collection_dish_photos]
