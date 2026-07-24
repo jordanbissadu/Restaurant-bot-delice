@@ -78,3 +78,19 @@ def test_missing_position_defaults_to_one() -> None:
 def test_empty_csv_returns_empty_list() -> None:
     """Un catalogue vide ne fait pas echouer le parseur."""
     assert parse_catalogue("") == []
+
+
+@pytest.mark.unit
+def test_windows_full_path_is_reduced_to_basename() -> None:
+    """Un chemin Windows complet colle par erreur se reduit au nom de fichier."""
+    rows = parse_catalogue(
+        'plat,fichier,ordre,actif\nPoulet Yassa,"""C:\\\\Users\\\\Resto\\\\poulet-yassa.jpg""",1,oui\n'
+    )
+    assert rows[0].file_name == "poulet-yassa.jpg"
+
+
+@pytest.mark.unit
+def test_posix_path_is_reduced_to_basename() -> None:
+    """Un chemin avec des slashes se reduit aussi au nom de fichier."""
+    rows = parse_catalogue("plat,fichier,ordre,actif\nPoulet Yassa,photos/poulet-yassa.jpg,1,oui\n")
+    assert rows[0].file_name == "poulet-yassa.jpg"

@@ -10,6 +10,7 @@ import io
 import logging
 
 from dataclasses import dataclass
+from pathlib import PureWindowsPath
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +53,7 @@ def parse_catalogue(csv_text: str) -> list[CatalogueRow]:
     for record in csv.DictReader(io.StringIO(text)):
         dish_name = _clean(record.get("plat"))
         file_name = _clean(record.get("fichier"))
+        file_name = PureWindowsPath(file_name).name
         if not dish_name or not file_name:
             logger.warning(
                 "catalogue_row_skipped: plat=%r fichier=%r", dish_name, file_name
