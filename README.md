@@ -60,7 +60,7 @@ Chaque image n'est telechargee et envoyee a Telegram qu'une seule fois : son
 `file_id` est ensuite reutilise. Remplacer une image dans Drive invalide
 automatiquement ce cache au cycle de synchronisation suivant.
 
-`PHOTOS_ENABLED=false` coupe la fonctionnalite sans redeplacement.
+`PHOTOS_ENABLED=false` coupe la fonctionnalite sans redeploiement.
 
 ## Utilisation
 
