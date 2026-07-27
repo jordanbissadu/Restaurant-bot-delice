@@ -113,6 +113,71 @@ Le bot fonctionne en long-polling : aucune URL publique n'est necessaire.
 - `/start` ou `/reset` — reinitialise la conversation
 - tout autre message — traite par l'agent
 
+## Tester l'agent de bout en bout
+
+Parcours minimal pour discuter avec le bot depuis zero. Chaque etape suppose la
+precedente reussie.
+
+1. **Dependances et configuration**
+
+   ```bash
+   uv venv
+   uv pip install -e ".[dev]"
+   cp .env.example .env
+   ```
+
+   Renseigner dans `.env` au minimum : `MONGODB_URI`, `OPENAI_API_KEY`,
+   `TELEGRAM_BOT_TOKEN`, `GOOGLE_DRIVE_FOLDER_ID`. Le compte de service Google
+   doit exister dans `credentials/service-account.json` (voir plus haut).
+
+   > Le `TELEGRAM_BOT_TOKEN` a la forme `<id>:<secret>`, par ex.
+   > `8123456789:AAE...`. Un token sans l'`<id>:` en tete est rejete par
+   > Telegram avec `InvalidToken`.
+
+2. **Index MongoDB**
+
+   ```bash
+   uv run python -m scripts.create_indexes
+   ```
+
+   Puis coller les definitions d'index Atlas Search affichees dans l'UI Atlas
+   (collection `chunks`), sinon la recherche menu reste vide.
+
+3. **Peupler le menu et les photos** depuis Drive
+
+   ```bash
+   uv run python -m scripts.run_sync_once
+   ```
+
+   Ce cycle ingere les documents du menu et, si un catalogue `photos` est
+   present dans le dossier Drive, remplit la collection `dish_photos`. Verifier
+   dans les logs `photo_sync_done: synced=<n>` que les photos sont chargees.
+
+4. **Verifier la suite de tests** (aucune dependance externe)
+
+   ```bash
+   uv run python -m pytest tests/ -v -m unit
+   ```
+
+5. **Lancer le bot et discuter**
+
+   ```bash
+   uv run python -m src.telegram_bot
+   ```
+
+   Ouvrir la conversation avec le bot sur Telegram et derouler quelques cas.
+   Le fichier [`tests/scenarios_manuels.md`](tests/scenarios_manuels.md) liste
+   des scenarios prets a envoyer, message par message, avec le comportement
+   attendu.
+
+   Verifications rapides cote photos :
+
+   - « je veux du poisson » → le texte, puis un album des variantes de poisson
+   - « c'est quoi votre menu ? » → texte **sans** photo (trop de plats cites)
+   - « le fufu sauce arachide » → ne doit **pas** declencher la photo « Eau »
+
+   Pour couper les photos sans toucher au reste : `PHOTOS_ENABLED=false`.
+
 ## Docker
 
 ```bash
