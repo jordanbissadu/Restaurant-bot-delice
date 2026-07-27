@@ -247,3 +247,34 @@ Poulet Yassa,poulet-yassa.jpg,1,oui
     assert kept["telegram_file_id"] == "cache-yassa"
     assert dropped is None
     assert report.removed == 1
+
+
+@pytest.mark.unit
+async def test_all_images_missing_does_not_wipe_collection() -> None:
+    """Catalogue non vide mais images absentes du listing : ne rien supprimer.
+
+    Un listing Drive transitoirement incomplet ne doit jamais se traduire par la
+    purge de toute la collection, sous peine de detruire tout le cache Telegram.
+    """
+    collection = _FakeCollection()
+    collection.docs.append(
+        {
+            "dish_key": "poulet yassa",
+            "drive_file_id": "img-1",
+            "drive_modified_time": NOW,
+            "telegram_file_id": "cache-abc",
+            "enabled": True,
+        }
+    )
+    csv_text = """plat,fichier,ordre,actif
+Poulet Yassa,poulet-yassa.jpg,1,oui
+"""
+
+    report = await sync_photo_catalogue(
+        _deps(collection), _FakeClient(csv_text), _routing([])
+    )
+
+    assert report.removed == 0
+    assert report.missing_files == ["poulet-yassa.jpg"]
+    assert len(collection.docs) == 1
+    assert collection.docs[0]["telegram_file_id"] == "cache-abc"

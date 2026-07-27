@@ -156,9 +156,19 @@ async def sync_photo_catalogue(
                 ]
             }
         )
-    else:
+        report.removed = deleted.deleted_count
+    elif not rows:
+        # Catalogue reellement vide : la purge de la collection est intentionnelle.
         deleted = await deps.dish_photos.delete_many({})
-    report.removed = deleted.deleted_count
+        report.removed = deleted.deleted_count
+    else:
+        # Le catalogue a des lignes mais aucune image trouvee (listing Drive
+        # transitoirement incomplet). Ne jamais traduire "rien garde" par "tout
+        # supprimer" : cela detruirait tout le cache Telegram sur un aleas reseau.
+        logger.warning(
+            "photo_sync_no_images_kept_skipping_delete: rows=%d", len(rows)
+        )
+        report.removed = 0
 
     logger.info(
         "photo_catalogue_synced: synced=%d missing=%d removed=%d",

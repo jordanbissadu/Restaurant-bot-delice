@@ -11,7 +11,7 @@ from src.drive.client import DriveClient
 from src.drive.diff import assert_deletion_is_safe, compute_diff
 from src.ingestion.ingest import delete_document, ingest_document, touch_document
 from src.models import DriveFileMeta
-from src.photos.sync import route_drive_files
+from src.photos.sync import route_drive_files, sync_photo_catalogue
 
 if TYPE_CHECKING:
     from src.dependencies import AppDependencies
@@ -100,6 +100,20 @@ async def run_sync(deps: "AppDependencies", client: DriveClient) -> SyncReport:
         except Exception:
             logger.exception("delete_failed: file_id=%s", file_id)
             report.failed.append(file_id)
+
+    # La sync du catalogue photos est isolee : un echec ici ne doit jamais
+    # faire echouer ni annuler le sync des documents deja effectue.
+    if deps.settings.photos_enabled:
+        try:
+            photo_report = await sync_photo_catalogue(deps, client, routing)
+            logger.info(
+                "photo_sync_done: synced=%d missing=%d removed=%d",
+                photo_report.synced,
+                len(photo_report.missing_files),
+                photo_report.removed,
+            )
+        except Exception:
+            logger.exception("photo_sync_failed")
 
     logger.info(
         "sync_done: ingested=%d updated=%d identical=%d deleted=%d unchanged=%d failed=%d",

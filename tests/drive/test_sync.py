@@ -41,6 +41,7 @@ class _FakeDeps:
             google_drive_folder_id="root",
             drive_sync_max_delete_ratio=0.5,
             drive_photos_catalogue_name="photos",
+            photos_enabled=True,
         )
 
 
@@ -183,3 +184,66 @@ async def test_failing_file_does_not_stop_the_others(
     assert spies["ingest"] == [("f2", "h2")]
     assert report.failed == ["f1"]
     assert report.ingested == 1
+
+
+def _photo_meta(file_id: str, name: str, mime: str) -> DriveFileMeta:
+    return DriveFileMeta(
+        file_id=file_id, name=name, mime_type=mime, modified_time=T0
+    )
+
+
+@pytest.mark.unit
+async def test_run_sync_wires_photo_catalogue_sync(
+    spies, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """run_sync appelle la sync du catalogue avec le routing, et l'image n'est
+    jamais ingeree comme document."""
+    captured: dict[str, Any] = {"called": 0}
+
+    async def fake_photo_sync(deps, client, routing):  # type: ignore[no-untyped-def]
+        captured["called"] += 1
+        captured["routing"] = routing
+        return SimpleNamespace(synced=1, missing_files=[], removed=0)
+
+    monkeypatch.setattr("src.drive.sync.sync_photo_catalogue", fake_photo_sync)
+
+    deps = _FakeDeps()
+    remote = [
+        _remote("doc1", T0),
+        _photo_meta("img-1", "poulet-yassa.jpg", "image/jpeg"),
+        _photo_meta("cat-1", "photos", "text/csv"),
+    ]
+    client = _FakeClient(remote, {"doc1": "h1"})
+
+    await run_sync(deps, client)
+
+    assert captured["called"] == 1
+    routing = captured["routing"]
+    assert any(m.file_id == "img-1" for m in routing.images)
+    assert routing.catalogue is not None
+    assert routing.catalogue.file_id == "cat-1"
+    # L'image ne doit jamais partir dans l'ingestion documentaire.
+    assert all(file_id != "img-1" for file_id, _ in spies["ingest"])
+    assert spies["ingest"] == [("doc1", "h1")]
+
+
+@pytest.mark.unit
+async def test_photos_disabled_skips_catalogue_sync(
+    spies, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Avec photos_enabled=False, la sync du catalogue n'est pas appelee."""
+    captured: dict[str, int] = {"called": 0}
+
+    async def fake_photo_sync(deps, client, routing):  # type: ignore[no-untyped-def]
+        captured["called"] += 1
+        return SimpleNamespace(synced=0, missing_files=[], removed=0)
+
+    monkeypatch.setattr("src.drive.sync.sync_photo_catalogue", fake_photo_sync)
+
+    deps = _FakeDeps()
+    deps.settings.photos_enabled = False
+    client = _FakeClient([_remote("doc1", T0)], {"doc1": "h1"})
+
+    await run_sync(deps, client)
+
+    assert captured["called"] == 0

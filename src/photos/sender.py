@@ -160,7 +160,10 @@ async def maybe_send_photos(
         for (_, _, document, is_upload), file_id in zip(prepared, returned):
             if is_upload and file_id:
                 await deps.dish_photos.update_one(
-                    {"drive_file_id": document["drive_file_id"]},
+                    {
+                        "dish_key": document["dish_key"],
+                        "drive_file_id": document["drive_file_id"],
+                    },
                     {"$set": {"telegram_file_id": file_id}},
                 )
 

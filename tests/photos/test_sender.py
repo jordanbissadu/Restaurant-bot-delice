@@ -29,7 +29,7 @@ class _FakeCollection:
     async def update_one(self, query: dict[str, Any], update: dict[str, Any]) -> None:
         self.updates.append((query, update))
         for doc in self.docs:
-            if doc.get("drive_file_id") == query.get("drive_file_id"):
+            if all(doc.get(k) == v for k, v in query.items()):
                 doc.update(update.get("$set", {}))
 
 
@@ -123,6 +123,33 @@ async def test_several_dishes_use_media_group() -> None:
     doc2 = next(d for d in collection.docs if d["drive_file_id"] == "img-2")
     assert doc1["telegram_file_id"] == "tg-0"
     assert doc2["telegram_file_id"] == "tg-1"
+
+
+@pytest.mark.unit
+async def test_shared_image_caches_each_dish_row_independently() -> None:
+    """Deux plats partageant une meme image cachent chacun leur propre file_id.
+
+    Le write-back doit cibler l'identite composee (dish_key, drive_file_id) :
+    sinon un seul des deux documents recevrait le cache et l'autre re-telechargerait
+    a chaque tour.
+    """
+    collection = _FakeCollection(
+        [
+            _doc("Poulet Yassa", "poulet yassa", "img-shared"),
+            _doc("Thiéboudienne", "thieboudienne", "img-shared"),
+        ]
+    )
+    sender, drive = _SpySender(), _SpyDrive()
+
+    await maybe_send_photos(
+        _deps(collection), 42, "Poulet Yassa et Thiéboudienne.", sender, drive
+    )
+
+    yassa = next(d for d in collection.docs if d["dish_key"] == "poulet yassa")
+    thieb = next(d for d in collection.docs if d["dish_key"] == "thieboudienne")
+    assert yassa["telegram_file_id"] == "tg-0"
+    assert thieb["telegram_file_id"] == "tg-1"
+    assert yassa["telegram_file_id"] != thieb["telegram_file_id"]
 
 
 @pytest.mark.unit
