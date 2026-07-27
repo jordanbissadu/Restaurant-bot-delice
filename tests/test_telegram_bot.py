@@ -18,7 +18,7 @@ class _SpyBot:
 
 @pytest.fixture
 def wired(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
-    calls: dict[str, Any] = {"loaded": [], "saved": [], "cleared": []}
+    calls: dict[str, Any] = {"loaded": [], "saved": [], "cleared": [], "sequence": []}
 
     async def fake_load(deps: Any, chat_id: int) -> list[str]:
         calls["loaded"].append(chat_id)
@@ -26,9 +26,11 @@ def wired(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
 
     async def fake_save(deps: Any, chat_id: int, messages: list[Any]) -> None:
         calls["saved"].append((chat_id, messages))
+        calls["sequence"].append("save")
 
     async def fake_clear(deps: Any, chat_id: int) -> None:
         calls["cleared"].append(chat_id)
+        calls["sequence"].append("clear")
 
     async def fake_answer(agent: Any, deps: Any, text: str, history: list[Any]):
         calls["history"] = history
@@ -64,6 +66,65 @@ async def test_reset_command_clears_history(wired) -> None:
     assert wired["cleared"] == [42]
     assert wired["saved"] == []
     assert "reinitialisee" in reply.lower() or "réinitialisée" in reply.lower()
+
+
+@pytest.mark.unit
+async def test_history_cleared_after_order_notified(
+    monkeypatch: pytest.MonkeyPatch, wired
+) -> None:
+    """Une commande partie en cuisine efface l'historique du client, apres save_turn."""
+
+    async def answer_with_order(agent: Any, deps: Any, text: str, history: list[Any]):
+        deps.order_notified = True
+        return SimpleNamespace(text="Commande confirmee", new_messages=["m1"])
+
+    monkeypatch.setattr("src.telegram_bot.answer", answer_with_order)
+
+    reply = await handle_message(
+        deps=object(), agent=object(), chat_id=42, text="Je confirme", sender=object()
+    )
+
+    assert reply == "Commande confirmee"
+    assert wired["cleared"] == [42]
+    # Le nettoyage vient APRES la persistance du tour courant, sinon save_turn
+    # ecrirait les messages du tour juste apres l'effacement.
+    assert wired["sequence"] == ["save", "clear"]
+
+
+@pytest.mark.unit
+async def test_history_not_cleared_without_order(wired) -> None:
+    """Un tour ordinaire (aucune commande notifiee) ne declenche aucun nettoyage."""
+    reply = await handle_message(
+        deps=object(), agent=object(), chat_id=42, text="Bonjour", sender=object()
+    )
+
+    assert reply == "reponse a Bonjour"
+    assert wired["cleared"] == []
+    assert wired["sequence"] == ["save"]
+
+
+@pytest.mark.unit
+async def test_clear_failure_after_order_does_not_break_reply(
+    monkeypatch: pytest.MonkeyPatch, wired
+) -> None:
+    """Un echec du nettoyage ne prive pas le client de sa confirmation."""
+
+    async def answer_with_order(agent: Any, deps: Any, text: str, history: list[Any]):
+        deps.order_notified = True
+        return SimpleNamespace(text="Commande confirmee", new_messages=["m1"])
+
+    async def failing_clear(deps: Any, chat_id: int) -> None:
+        raise RuntimeError("mongo indisponible")
+
+    monkeypatch.setattr("src.telegram_bot.answer", answer_with_order)
+    monkeypatch.setattr("src.telegram_bot.clear_history", failing_clear)
+
+    reply = await handle_message(
+        deps=object(), agent=object(), chat_id=42, text="Je confirme", sender=object()
+    )
+
+    assert reply == "Commande confirmee"
+    assert wired["saved"] == [(42, ["m1"])]
 
 
 @pytest.mark.unit

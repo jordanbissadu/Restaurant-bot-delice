@@ -21,7 +21,10 @@ class _FakeChunks:
         self.docs = docs
         self.pipelines: list[list[dict[str, Any]]] = []
 
-    def aggregate(self, pipeline: list[dict[str, Any]]) -> _FakeCursor:
+    async def aggregate(self, pipeline: list[dict[str, Any]]) -> _FakeCursor:
+        # PyMongo async : aggregate() est une coroutine, contrairement a find().
+        # Le fake doit l'etre aussi, sinon il masque le vrai comportement du
+        # driver (bug 'coroutine' object has no attribute 'to_list').
         self.pipelines.append(pipeline)
         return _FakeCursor(self.docs)
 

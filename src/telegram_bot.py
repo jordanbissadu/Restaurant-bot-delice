@@ -141,6 +141,18 @@ async def handle_message(
         return FALLBACK_MESSAGE
 
     await save_turn(deps, chat_id, reply.new_messages)
+
+    # Commande partie en cuisine : on repart d'une conversation vierge pour ce
+    # client. Effacer apres save_turn (qui vient d'ecrire le tour courant)
+    # garantit une ardoise propre. Le nettoyage est isole : un echec ici ne doit
+    # jamais priver le client de sa confirmation, deja calculee.
+    if bot_deps.order_notified:
+        try:
+            await clear_history(deps, chat_id)
+            logger.info("history_cleared_after_order: chat_id=%d", chat_id)
+        except Exception:
+            logger.exception("history_clear_after_order_failed: chat_id=%d", chat_id)
+
     return reply.text
 
 

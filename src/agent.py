@@ -37,6 +37,9 @@ class BotDeps:
     app: "AppDependencies"
     chat_id: int
     sender: KitchenSender
+    # Arme par notify_kitchen apres un envoi reussi : signale a la couche
+    # Telegram qu'il faut reinitialiser la conversation une fois le tour persiste.
+    order_notified: bool = False
 
 
 class AgentReply(BaseModel):
@@ -144,6 +147,9 @@ def build_agent() -> Agent[BotDeps, str]:
         except OrderNotFoundError as exc:
             raise ModelRetry(str(exc)) from exc
 
+        # Le recap est parti en cuisine : la conversation de ce client sera
+        # reinitialisee apres persistance du tour (cf. handle_message).
+        ctx.deps.order_notified = True
         return f"Cuisine notifiee pour la commande {order_number}."
 
     return agent
