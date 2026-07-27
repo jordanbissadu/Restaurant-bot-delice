@@ -59,6 +59,24 @@ def test_older_remote_time_is_not_a_modification() -> None:
 
 
 @pytest.mark.unit
+def test_naive_stored_time_does_not_crash() -> None:
+    """Une date locale naive (relue de Mongo) se compare sans TypeError.
+
+    Reproduit le crash de production : Drive fournit une date aware, MongoDB la
+    relit en naive; sans alignement, la comparaison levait
+    `TypeError: can't compare offset-naive and offset-aware datetimes`.
+    """
+    naive_t0 = datetime(2026, 7, 21, 10, 0)  # naive, meme instant que T0
+
+    unchanged = compute_diff([_remote("f1", T0)], local={"f1": naive_t0})
+    assert unchanged.unchanged == ["f1"]
+    assert unchanged.modified == []
+
+    modified = compute_diff([_remote("f1", T1)], local={"f1": naive_t0})
+    assert [f.file_id for f in modified.modified] == ["f1"]
+
+
+@pytest.mark.unit
 def test_deleted_file_is_detected() -> None:
     """Un fichier local absent du distant est marque supprime."""
     diff = compute_diff([_remote("f1", T0)], local={"f1": T0, "f2": T0})

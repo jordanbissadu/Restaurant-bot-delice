@@ -42,8 +42,14 @@ class AppDependencies:
         """
         if self.mongo_client is None:
             try:
+                # tz_aware=True : pymongo relit sinon ses datetimes en naive,
+                # ce qui casse les comparaisons avec les dates aware de l'API
+                # Drive (TypeError au diff, et invalidation permanente du cache
+                # photo). Toute l'appli ecrit deja des dates aware-UTC.
                 self.mongo_client = AsyncMongoClient(
-                    self.settings.mongodb_uri, serverSelectionTimeoutMS=5000
+                    self.settings.mongodb_uri,
+                    serverSelectionTimeoutMS=5000,
+                    tz_aware=True,
                 )
                 self.db = self.mongo_client[self.settings.mongodb_database]
                 await self.mongo_client.admin.command("ping")

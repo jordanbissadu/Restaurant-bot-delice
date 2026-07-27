@@ -1,7 +1,7 @@
 """Comparaison de l'etat Google Drive avec l'etat MongoDB."""
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.models import DriveFileMeta, SyncDiff
 
@@ -10,6 +10,25 @@ logger = logging.getLogger(__name__)
 
 class DeletionGuardError(Exception):
     """Levee quand un diff propose une suppression de masse suspecte."""
+
+
+def _as_utc(value: datetime) -> datetime:
+    """
+    Force une date en UTC timezone-aware.
+
+    L'API Drive fournit des dates aware; MongoDB les relit en naive (pymongo
+    renvoie du naive par defaut). On aligne les deux avant toute comparaison,
+    sinon Python leve `TypeError: can't compare offset-naive and offset-aware`.
+
+    Args:
+        value: Date aware ou naive, supposee exprimee en UTC.
+
+    Returns:
+        La meme date en UTC timezone-aware.
+    """
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def compute_diff(remote: list[DriveFileMeta], local: dict[str, datetime]) -> SyncDiff:
@@ -39,7 +58,7 @@ def compute_diff(remote: list[DriveFileMeta], local: dict[str, datetime]) -> Syn
 
         if known_time is None:
             diff.new.append(file)
-        elif file.modified_time > known_time:
+        elif _as_utc(file.modified_time) > _as_utc(known_time):
             diff.modified.append(file)
         else:
             diff.unchanged.append(file.file_id)
