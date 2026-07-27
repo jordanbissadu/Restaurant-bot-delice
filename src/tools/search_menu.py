@@ -98,7 +98,11 @@ async def hybrid_search(
         {"$unwind": {"path": "$document_info", "preserveNullAndEmptyArrays": True}},
     ]
 
-    raw = await deps.chunks.aggregate(pipeline).to_list(length=limit)
+    # PyMongo async : aggregate() est une coroutine qui execute la commande et
+    # renvoie le curseur ; il faut l'await avant .to_list() (contrairement a
+    # find(), qui renvoie un curseur paresseux directement).
+    cursor = await deps.chunks.aggregate(pipeline)
+    raw = await cursor.to_list(length=limit)
 
     results = [
         SearchResult(
