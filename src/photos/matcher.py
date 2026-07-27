@@ -14,8 +14,8 @@ Deux regles gouvernent la recherche :
 
 import re
 import unicodedata
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
 DEFAULT_MAX_DISHES = 4
 
@@ -71,10 +71,11 @@ def find_dishes(
         if not entry.key or entry.name in seen:
             continue
 
+        current = "".join(haystack)
         pattern = re.compile(
             r"(?<![0-9a-z])" + re.escape(entry.key) + r"(?![0-9a-z])"
         )
-        match = pattern.search("".join(haystack))
+        match = pattern.search(current)
         if match is None:
             continue
 
@@ -83,7 +84,7 @@ def find_dishes(
 
         # Blanchir toutes les occurrences pour qu'un nom plus court ne puisse
         # plus matcher a l'interieur d'un nom deja consomme.
-        for occurrence in pattern.finditer("".join(haystack)):
+        for occurrence in pattern.finditer(current):
             for index in range(occurrence.start(), occurrence.end()):
                 haystack[index] = " "
 

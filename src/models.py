@@ -135,7 +135,11 @@ class DishPhoto(BaseModel):
         ..., description="Horodatage Drive; son changement invalide le cache"
     )
     content_hash: str = Field(
-        default="", description="sha256, renseigne au premier telechargement"
+        default="",
+        description=(
+            "Reserve pour un usage futur; laisse vide. L'invalidation du cache "
+            "se base sur drive_modified_time, pas sur ce hash."
+        ),
     )
     telegram_file_id: str = Field(
         default="", description="Cache Telegram; vide tant que jamais envoyee"

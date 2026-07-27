@@ -49,8 +49,16 @@ def parse_catalogue(csv_text: str) -> list[CatalogueRow]:
     if not text.strip():
         return []
 
+    reader = csv.DictReader(io.StringIO(text))
+    if reader.fieldnames is not None and "actif" not in reader.fieldnames:
+        logger.warning(
+            "catalogue_actif_column_missing: colonne 'actif' absente, toutes les "
+            "lignes seront desactivees; colonnes=%r",
+            reader.fieldnames,
+        )
+
     rows: list[CatalogueRow] = []
-    for record in csv.DictReader(io.StringIO(text)):
+    for record in reader:
         dish_name = _clean(record.get("plat"))
         file_name = _clean(record.get("fichier"))
         file_name = PureWindowsPath(file_name).name

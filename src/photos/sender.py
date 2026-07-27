@@ -31,6 +31,27 @@ class PhotoSender(Protocol):
         ...
 
 
+def _entries_from_documents(documents: list[dict[str, Any]]) -> list[DishEntry]:
+    """
+    Deduplique des documents `dish_photos` en entrees pour le matcher.
+
+    Args:
+        documents: Documents `dish_photos` actifs.
+
+    Returns:
+        Une entree par plat, dedoublonnee par `dish_key`.
+    """
+    seen: set[str] = set()
+    entries: list[DishEntry] = []
+    for document in documents:
+        key = document.get("dish_key", "")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        entries.append(DishEntry(name=document["dish_name"], key=key))
+    return entries
+
+
 async def load_active_entries(deps: Any) -> list[DishEntry]:
     """
     Charge les plats disposant d'au moins une photo active.
@@ -44,16 +65,7 @@ async def load_active_entries(deps: Any) -> list[DishEntry]:
     documents = await deps.dish_photos.find(
         {"enabled": True}, {"dish_name": 1, "dish_key": 1}
     ).to_list(None)
-
-    seen: set[str] = set()
-    entries: list[DishEntry] = []
-    for document in documents:
-        key = document.get("dish_key", "")
-        if not key or key in seen:
-            continue
-        seen.add(key)
-        entries.append(DishEntry(name=document["dish_name"], key=key))
-    return entries
+    return _entries_from_documents(documents)
 
 
 def _caption(dish_name: str, suffix: str) -> str:
@@ -114,16 +126,18 @@ async def maybe_send_photos(
         return []
 
     try:
-        entries = await load_active_entries(deps)
-        if not entries:
+        # Une seule lecture Mongo par tour : les entrees du matcher et les
+        # documents complets sont derives du meme resultat.
+        documents = await deps.dish_photos.find({"enabled": True}).to_list(None)
+        if not documents:
             return []
 
+        entries = _entries_from_documents(documents)
         dishes = find_dishes(text, entries, deps.settings.photos_max_dishes)
         if not dishes:
             logger.info("photos_skipped: chat_id=%d plats=0", chat_id)
             return []
 
-        documents = await deps.dish_photos.find({"enabled": True}).to_list(None)
         by_key: dict[str, list[dict[str, Any]]] = {}
         for document in documents:
             by_key.setdefault(document.get("dish_key", ""), []).append(document)
