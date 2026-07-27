@@ -26,6 +26,10 @@ async def main() -> None:
         conversations = deps.db[deps.settings.mongodb_collection_conversations]
         await messages.create_index([("chat_id", 1), ("seq", -1)])
         await conversations.create_index("chat_id", unique=True)
+        await deps.dish_photos.create_index(
+            [("dish_key", 1), ("drive_file_id", 1)], unique=True
+        )
+        await deps.dish_photos.create_index([("dish_key", 1), ("enabled", 1)])
         logger.info("classic_indexes_created")
 
     vector_index = {

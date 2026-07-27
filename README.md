@@ -46,6 +46,22 @@ Le script cree les index classiques et affiche la definition JSON des index
 Atlas Search (`vector_index`, `text_index`) a coller dans l'UI Atlas, sur la
 collection `chunks`. Ces index ne peuvent pas etre crees par pymongo.
 
+## Photos des plats
+
+Le bot illustre ses reponses quand elles citent 1 a 4 plats. Les images vivent
+dans Drive, a cote des documents du menu, accompagnees d'un catalogue `photos`
+(Google Sheet ou CSV) aux colonnes `plat`, `fichier`, `ordre`, `actif`.
+
+La colonne `plat` doit reprendre le nom exact du document menu : c'est la cle
+d'association. Passer `actif` a `non` retire une photo sans supprimer le
+fichier.
+
+Chaque image n'est telechargee et envoyee a Telegram qu'une seule fois : son
+`file_id` est ensuite reutilise. Remplacer une image dans Drive invalide
+automatiquement ce cache au cycle de synchronisation suivant.
+
+`PHOTOS_ENABLED=false` coupe la fonctionnalite sans redeplacement.
+
 ## Utilisation
 
 ```bash
