@@ -109,7 +109,7 @@ async def sync_photo_catalogue(
 
     images_by_name = {meta.name.strip().lower(): meta for meta in routing.images}
     now = datetime.now(timezone.utc)
-    kept_file_ids: list[str] = []
+    kept_keys: list[dict[str, str]] = []
 
     for row in rows:
         image = images_by_name.get(row.file_name.strip().lower())
@@ -120,12 +120,13 @@ async def sync_photo_catalogue(
             )
             continue
 
-        query = {"dish_key": normalize(row.dish_name), "drive_file_id": image.file_id}
+        dish_key = normalize(row.dish_name)
+        query = {"dish_key": dish_key, "drive_file_id": image.file_id}
         existing = await deps.dish_photos.find_one(query)
 
         changes: dict[str, Any] = {
             "dish_name": row.dish_name,
-            "dish_key": normalize(row.dish_name),
+            "dish_key": dish_key,
             "drive_file_id": image.file_id,
             "file_name": image.name,
             "drive_modified_time": image.modified_time,
@@ -143,14 +144,26 @@ async def sync_photo_catalogue(
             logger.info("photo_cache_invalidated: fichier=%s", image.name)
 
         await deps.dish_photos.update_one(query, {"$set": changes}, upsert=True)
-        kept_file_ids.append(image.file_id)
+        kept_keys.append({"dish_key": dish_key, "drive_file_id": image.file_id})
         report.synced += 1
 
-    await deps.dish_photos.delete_many({"drive_file_id": {"$nin": kept_file_ids}})
+    if kept_keys:
+        deleted = await deps.dish_photos.delete_many(
+            {
+                "$nor": [
+                    {"dish_key": k["dish_key"], "drive_file_id": k["drive_file_id"]}
+                    for k in kept_keys
+                ]
+            }
+        )
+    else:
+        deleted = await deps.dish_photos.delete_many({})
+    report.removed = deleted.deleted_count
 
     logger.info(
-        "photo_catalogue_synced: synced=%d missing=%d",
+        "photo_catalogue_synced: synced=%d missing=%d removed=%d",
         report.synced,
         len(report.missing_files),
+        report.removed,
     )
     return report

@@ -41,13 +41,21 @@ class _FakeCollection:
             self.docs.append(existing)
         existing.update(update.get("$set", {}))
 
-    async def delete_many(self, query: dict[str, Any]) -> None:
-        keep = []
-        for doc in self.docs:
-            nin = query.get("drive_file_id", {}).get("$nin")
-            if nin is not None and doc.get("drive_file_id") in nin:
-                keep.append(doc)
+    async def delete_many(self, query: dict[str, Any]) -> SimpleNamespace:
+        nor = query.get("$nor")
+        if nor is not None:
+            keep = [
+                doc
+                for doc in self.docs
+                if any(
+                    all(doc.get(k) == v for k, v in clause.items()) for clause in nor
+                )
+            ]
+        else:
+            keep = []
+        removed = len(self.docs) - len(keep)
         self.docs = keep
+        return SimpleNamespace(deleted_count=removed)
 
 
 class _FakeClient:
@@ -95,6 +103,7 @@ async def test_catalogue_rows_are_written() -> None:
     assert yassa["dish_name"] == "Poulet Yassa"
     assert yassa["dish_key"] == "poulet yassa"
     assert yassa["enabled"] is True
+    assert yassa["telegram_file_id"] == ""
 
 
 @pytest.mark.unit
@@ -174,3 +183,67 @@ async def test_absent_catalogue_is_not_fatal() -> None:
 
     assert report.synced == 0
     assert collection.docs == []
+
+
+@pytest.mark.unit
+async def test_stale_row_is_removed() -> None:
+    """Un document dish_photos dont la ligne a disparu du catalogue est supprime."""
+    collection = _FakeCollection()
+    collection.docs.append(
+        {
+            "dish_key": "plat oublie",
+            "drive_file_id": "img-stale",
+            "drive_modified_time": NOW,
+            "telegram_file_id": "cache-stale",
+        }
+    )
+    images = [_meta("poulet-yassa.jpg", "img-1"), _meta("eau.jpg", "img-2")]
+
+    report = await sync_photo_catalogue(
+        _deps(collection), _FakeClient(CSV), _routing(images)
+    )
+
+    stale = await collection.find_one({"drive_file_id": "img-stale"})
+    assert stale is None
+    assert report.removed == 1
+
+
+@pytest.mark.unit
+async def test_shared_image_across_dishes_removes_only_the_dropped_row() -> None:
+    """Deux plats partageant le meme fichier ne doivent pas se supprimer l'un l'autre."""
+    collection = _FakeCollection()
+    collection.docs.append(
+        {
+            "dish_key": "poulet yassa",
+            "drive_file_id": "img-shared",
+            "drive_modified_time": NOW,
+            "telegram_file_id": "cache-yassa",
+        }
+    )
+    collection.docs.append(
+        {
+            "dish_key": "thieboudienne",
+            "drive_file_id": "img-shared",
+            "drive_modified_time": NOW,
+            "telegram_file_id": "cache-thiebou",
+        }
+    )
+    csv_text = """plat,fichier,ordre,actif
+Poulet Yassa,poulet-yassa.jpg,1,oui
+"""
+    images = [_meta("poulet-yassa.jpg", "img-shared")]
+
+    report = await sync_photo_catalogue(
+        _deps(collection), _FakeClient(csv_text), _routing(images)
+    )
+
+    kept = await collection.find_one(
+        {"dish_key": "poulet yassa", "drive_file_id": "img-shared"}
+    )
+    dropped = await collection.find_one(
+        {"dish_key": "thieboudienne", "drive_file_id": "img-shared"}
+    )
+    assert kept is not None
+    assert kept["telegram_file_id"] == "cache-yassa"
+    assert dropped is None
+    assert report.removed == 1
