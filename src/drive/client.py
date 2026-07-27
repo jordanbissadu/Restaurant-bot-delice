@@ -174,6 +174,51 @@ class DriveClient:
         )
         return path, digest
 
+    async def fetch_bytes(self, meta: DriveFileMeta) -> bytes:
+        """
+        Recupere le contenu binaire d'un fichier sans l'ecrire sur disque.
+
+        Args:
+            meta: Metadonnees du fichier.
+
+        Returns:
+            Le contenu brut.
+
+        Raises:
+            googleapiclient.errors.HttpError: Si l'API Drive renvoie une erreur.
+        """
+        return await asyncio.to_thread(self._fetch_bytes, meta)
+
+    async def export_csv(self, meta: DriveFileMeta) -> str:
+        """
+        Recupere un catalogue au format CSV, Google Sheet ou fichier brut.
+
+        Args:
+            meta: Metadonnees du catalogue.
+
+        Returns:
+            Le contenu textuel, decode en UTF-8.
+
+        Raises:
+            googleapiclient.errors.HttpError: Si l'API Drive renvoie une erreur.
+        """
+        data = await asyncio.to_thread(self._fetch_csv_bytes, meta)
+        return data.decode("utf-8-sig")
+
+    def _fetch_csv_bytes(self, meta: DriveFileMeta) -> bytes:
+        """Exporte un Sheet en CSV, ou telecharge un .csv tel quel."""
+        if meta.mime_type == "application/vnd.google-apps.spreadsheet":
+            return (
+                self.service.files()
+                .export_media(fileId=meta.file_id, mimeType="text/csv")
+                .execute()
+            )
+        return (
+            self.service.files()
+            .get_media(fileId=meta.file_id, supportsAllDrives=True)
+            .execute()
+        )
+
     def _fetch_bytes(self, meta: DriveFileMeta) -> bytes:
         """Recupere le contenu binaire d'un fichier (export ou telechargement)."""
         export = EXPORT_FORMATS.get(meta.mime_type)
