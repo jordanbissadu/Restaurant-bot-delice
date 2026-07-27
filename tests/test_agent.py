@@ -175,6 +175,25 @@ async def test_save_order_validation_error_becomes_retry(
 
 
 @pytest.mark.unit
+async def test_notify_kitchen_success_arms_conversation_reset(
+    deps: BotDeps, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Une notification cuisine reussie arme le drapeau de reset de conversation."""
+
+    async def ok(*args: Any, **kwargs: Any) -> str:
+        return "recap"
+
+    monkeypatch.setattr("src.agent.send_to_kitchen", ok)
+    agent = build_agent()
+
+    assert deps.order_notified is False
+    with agent.override(model=TestModel(call_tools=["notify_kitchen"])):
+        await answer(agent, deps, "envoie en cuisine", history=[])
+
+    assert deps.order_notified is True
+
+
+@pytest.mark.unit
 async def test_notify_kitchen_unknown_order_becomes_retry(
     deps: BotDeps, monkeypatch: pytest.MonkeyPatch
 ) -> None:
