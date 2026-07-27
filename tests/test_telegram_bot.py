@@ -107,3 +107,49 @@ async def test_telegram_sender_forwards_to_bot() -> None:
     await sender.send("-500", "recap")
 
     assert bot.sent == [("-500", "recap")]
+
+
+class _SpyPhotoBot:
+    def __init__(self) -> None:
+        self.photos: list[tuple[int, Any, str]] = []
+        self.groups: list[tuple[int, Any]] = []
+
+    async def send_photo(self, chat_id: int, photo: Any, caption: str) -> Any:
+        self.photos.append((chat_id, photo, caption))
+        return SimpleNamespace(photo=[SimpleNamespace(file_id="tg-small"), SimpleNamespace(file_id="tg-big")])
+
+    async def send_media_group(self, chat_id: int, media: Any) -> Any:
+        self.groups.append((chat_id, media))
+        return [
+            SimpleNamespace(photo=[SimpleNamespace(file_id=f"tg-{i}")])
+            for i in range(len(media))
+        ]
+
+
+@pytest.mark.unit
+async def test_photo_sender_returns_largest_file_id() -> None:
+    """L'adaptateur rend le file_id de la plus grande taille proposee."""
+    from src.telegram_bot import TelegramPhotoSender
+
+    bot = _SpyPhotoBot()
+    sender = TelegramPhotoSender(bot)
+
+    file_id = await sender.send_photo(42, b"octets", "Poulet Yassa")
+
+    assert file_id == "tg-big"
+    assert bot.photos[0][0] == 42
+
+
+@pytest.mark.unit
+async def test_photo_sender_media_group_returns_file_ids() -> None:
+    """L'album rend un file_id par image, dans l'ordre."""
+    from src.telegram_bot import TelegramPhotoSender
+
+    bot = _SpyPhotoBot()
+    sender = TelegramPhotoSender(bot)
+
+    file_ids = await sender.send_media_group(
+        42, [(b"a", "Plat A"), (b"b", "Plat B")]
+    )
+
+    assert file_ids == ["tg-0", "tg-1"]
