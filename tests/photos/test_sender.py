@@ -116,6 +116,13 @@ async def test_several_dishes_use_media_group() -> None:
     assert sent == ["Poulet Yassa", "Thiéboudienne"]
     assert sender.photos == []
     assert len(sender.groups[0][1]) == 2
+    # Verify multi-image cache write-back mapping
+    assert drive.downloads == ["img-1", "img-2"]
+    # Find docs by drive_file_id and verify telegram_file_id write-back
+    doc1 = next(d for d in collection.docs if d["drive_file_id"] == "img-1")
+    doc2 = next(d for d in collection.docs if d["drive_file_id"] == "img-2")
+    assert doc1["telegram_file_id"] == "tg-0"
+    assert doc2["telegram_file_id"] == "tg-1"
 
 
 @pytest.mark.unit
@@ -189,6 +196,17 @@ async def test_images_are_truncated_to_the_limit() -> None:
     )
 
     assert len(sender.groups[0][1]) == 10
+    # Verify correct 10 kept in dish-then-position order:
+    # first 3 dishes contribute 3 photos each (9 total),
+    # 4th dish contributes only position-1 photo (1),
+    # the two dropped are Bissap position-2 and position-3
+    kept_captions = [caption for _, caption in sender.groups[0][1]]
+    assert kept_captions.count("Poulet Yassa") == 3
+    assert kept_captions.count("Thiéboudienne") == 3
+    assert kept_captions.count("Tarte Tatin") == 3
+    assert kept_captions.count("Bissap") == 1
+    # Verify no Bissap position-2 or position-3 (only position-1 is kept)
+    assert len(kept_captions) == 10
 
 
 @pytest.mark.unit
