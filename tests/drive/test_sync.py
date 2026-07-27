@@ -38,7 +38,9 @@ class _FakeDeps:
     def __init__(self, docs: list[dict[str, Any]] | None = None) -> None:
         self.documents = _FakeDocuments(docs or [])
         self.settings = SimpleNamespace(
-            google_drive_folder_id="root", drive_sync_max_delete_ratio=0.5
+            google_drive_folder_id="root",
+            drive_sync_max_delete_ratio=0.5,
+            drive_photos_catalogue_name="photos",
         )
 
 

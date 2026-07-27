@@ -11,6 +11,7 @@ from src.drive.client import DriveClient
 from src.drive.diff import assert_deletion_is_safe, compute_diff
 from src.ingestion.ingest import delete_document, ingest_document, touch_document
 from src.models import DriveFileMeta
+from src.photos.sync import route_drive_files
 
 if TYPE_CHECKING:
     from src.dependencies import AppDependencies
@@ -53,7 +54,11 @@ async def run_sync(deps: "AppDependencies", client: DriveClient) -> SyncReport:
     Raises:
         DeletionGuardError: Si le diff propose une suppression de masse.
     """
-    remote = await client.list_folder_files(deps.settings.google_drive_folder_id)
+    all_remote = await client.list_folder_files(deps.settings.google_drive_folder_id)
+    routing = route_drive_files(
+        all_remote, deps.settings.drive_photos_catalogue_name
+    )
+    remote = routing.documents
     local_docs = await deps.documents.find(
         {}, {"drive.file_id": 1, "drive.modified_time": 1, "drive.content_hash": 1}
     ).to_list(None)
